@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer } from "node:http";
 import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
@@ -9,6 +10,7 @@ import {
   getUserById,
   getUserByUsername,
 } from "./dao-users.js";
+import { getFullNetwork, getSegments } from "./dao-network.js";
 
 const LocalStrategy = passportLocal.Strategy;
 const app = express();
@@ -90,6 +92,24 @@ app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
+app.get("/api/network", isLoggedIn, async (req, res, next) => {
+  try {
+    const network = await getFullNetwork();
+    res.json(network);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.get("/api/segments", isLoggedIn, async (req, res, next) => {
+  try {
+    const segments = await getSegments();
+    res.json(segments);
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.post("/api/sessions", (req, res, next) => {
   passport.authenticate("local", (err, user) => {
     if (err) {
@@ -133,6 +153,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-app.listen(port, () => {
+const server = createServer(app);
+
+server.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
+});
+
+server.on("error", (err) => {
+  console.error("Server error:", err);
 });
