@@ -72,6 +72,101 @@ button {
   color: #b00020;
 }
 
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.button-row a,
+.button-row button {
+  border: 1px solid #aaa;
+  border-radius: 4px;
+  color: #222;
+  background: #f7f7f7;
+  padding: 8px 12px;
+  text-decoration: none;
+}
+
+.timer {
+  margin: 20px 0;
+  padding: 12px;
+  border: 1px solid #ddd;
+  background: #f7f7f7;
+}
+
+.network-box {
+  margin: 24px 0;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.simple-list {
+  padding-left: 20px;
+}
+
+.simple-list li {
+  margin-bottom: 12px;
+}
+
+.line-color {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.station-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 20px;
+}
+
+.station-pill {
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  padding: 6px 10px;
+  background: #f7f7f7;
+}
+
+.line-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.line-badge {
+  border: 2px solid #ddd;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 14px;
+}
+
+.segment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 8px;
+  margin: 12px 0 24px;
+}
+
+.segment-list button {
+  text-align: left;
+}
+
+.step-card {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #f7f7f7;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;

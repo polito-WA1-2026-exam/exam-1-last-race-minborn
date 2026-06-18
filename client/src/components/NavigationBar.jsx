@@ -9,6 +9,7 @@ function NavigationBar({ user, loggedIn, onLogout }) {
 
       <nav className="nav-links">
         <Link to="/">Instructions</Link>
+        {loggedIn && <Link to="/setup">Play</Link>}
         {loggedIn && <Link to="/ranking">Ranking</Link>}
         {!loggedIn && <Link to="/login">Login</Link>}
       </nav>
