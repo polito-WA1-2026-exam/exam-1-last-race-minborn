@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer } from "node:http";
 import cors from "cors";
 import morgan from "morgan";
 import session from "express-session";
@@ -15,22 +14,6 @@ import { getFullNetwork, getSegments } from "./dao-network.js";
 const LocalStrategy = passportLocal.Strategy;
 const app = express();
 const port = 3001;
-
-function userResponse(user) {
-  return {
-    id: user.id,
-    username: user.username,
-  };
-}
-
-function isLoggedIn(req, res, next) {
-  if (req.isAuthenticated()) {
-    next();
-    return;
-  }
-
-  res.status(401).json({ error: "Not authenticated" });
-}
 
 app.use(morgan("dev"));
 app.use(express.json());
@@ -54,20 +37,18 @@ passport.use(
       const user = await getUserByUsername(username);
 
       if (!user) {
-        done(null, false);
-        return;
+        return done(null, false);
       }
 
-      const validPassword = await checkPassword(user, password);
+      const passwordIsCorrect = await checkPassword(user, password);
 
-      if (!validPassword) {
-        done(null, false);
-        return;
+      if (!passwordIsCorrect) {
+        return done(null, false);
       }
 
-      done(null, user);
+      return done(null, user);
     } catch (err) {
-      done(err);
+      return done(err);
     }
   }),
 );
@@ -88,8 +69,57 @@ passport.deserializeUser(async (id, done) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
+function userResponse(user) {
+  return {
+    id: user.id,
+    username: user.username,
+  };
+}
+
+function isLoggedIn(req, res, next) {
+  if (req.isAuthenticated()) {
+    return next();
+  }
+
+  return res.status(401).json({ error: "Not authenticated" });
+}
+
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok" });
+});
+
+app.post("/api/sessions", (req, res, next) => {
+  passport.authenticate("local", (err, user) => {
+    if (err) {
+      return next(err);
+    }
+
+    if (!user) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    return req.login(user, (loginErr) => {
+      if (loginErr) {
+        return next(loginErr);
+      }
+
+      return res.json(userResponse(user));
+    });
+  })(req, res, next);
+});
+
+app.get("/api/sessions/current", isLoggedIn, (req, res) => {
+  res.json(userResponse(req.user));
+});
+
+app.delete("/api/sessions/current", isLoggedIn, (req, res, next) => {
+  req.logout((err) => {
+    if (err) {
+      return next(err);
+    }
+
+    return res.status(200).json({ message: "Logged out" });
+  });
 });
 
 app.get("/api/network", isLoggedIn, async (req, res, next) => {
@@ -110,55 +140,11 @@ app.get("/api/segments", isLoggedIn, async (req, res, next) => {
   }
 });
 
-app.post("/api/sessions", (req, res, next) => {
-  passport.authenticate("local", (err, user) => {
-    if (err) {
-      next(err);
-      return;
-    }
-
-    if (!user) {
-      res.status(401).json({ error: "Invalid credentials" });
-      return;
-    }
-
-    req.login(user, (loginErr) => {
-      if (loginErr) {
-        next(loginErr);
-        return;
-      }
-
-      res.json(userResponse(user));
-    });
-  })(req, res, next);
-});
-
-app.get("/api/sessions/current", isLoggedIn, (req, res) => {
-  res.json(userResponse(req.user));
-});
-
-app.delete("/api/sessions/current", isLoggedIn, (req, res, next) => {
-  req.logout((err) => {
-    if (err) {
-      next(err);
-      return;
-    }
-
-    res.status(200).json({ message: "Logged out" });
-  });
-});
-
 app.use((err, req, res, next) => {
   console.error(err);
   res.status(500).json({ error: "Internal server error" });
 });
 
-const server = createServer(app);
-
-server.listen(port, () => {
+app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
-});
-
-server.on("error", (err) => {
-  console.error("Server error:", err);
 });

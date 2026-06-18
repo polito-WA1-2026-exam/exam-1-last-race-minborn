@@ -3,21 +3,19 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const sqlite3 = sqlite3Package.verbose();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const dbPath = join(__dirname, "last_race.sqlite");
+const databaseFolder = dirname(fileURLToPath(import.meta.url));
+const databaseFile = join(databaseFolder, "last_race.sqlite");
 
-export const db = new sqlite3.Database(dbPath);
+export const db = new sqlite3.Database(databaseFile);
 
 export function dbGet(sql, params = []) {
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
       if (err) {
         reject(err);
-        return;
+      } else {
+        resolve(row);
       }
-
-      resolve(row);
     });
   });
 }
@@ -27,26 +25,24 @@ export function dbAll(sql, params = []) {
     db.all(sql, params, (err, rows) => {
       if (err) {
         reject(err);
-        return;
+      } else {
+        resolve(rows);
       }
-
-      resolve(rows);
     });
   });
 }
 
 export function dbRun(sql, params = []) {
   return new Promise((resolve, reject) => {
-    db.run(sql, params, function runStatement(err) {
+    db.run(sql, params, function (err) {
       if (err) {
         reject(err);
-        return;
+      } else {
+        resolve({
+          id: this.lastID,
+          changes: this.changes,
+        });
       }
-
-      resolve({
-        id: this.lastID,
-        changes: this.changes,
-      });
     });
   });
 }

@@ -1,8 +1,14 @@
 import { randomBytes, scrypt } from "node:crypto";
 import { promisify } from "node:util";
-import db, { dbGet, dbRun } from "./db.js";
+import db, { dbRun } from "./db.js";
 
 const scryptAsync = promisify(scrypt);
+
+const users = [
+  { username: "user1", password: "password" },
+  { username: "user2", password: "password" },
+  { username: "user3", password: "password" },
+];
 
 const stations = [
   { name: "Northgate", x: 50, y: 10 },
@@ -29,31 +35,23 @@ const lines = [
   { name: "Gold Line", color: "#f2b705" },
 ];
 
-const lineSegments = {
-  "Crimson Line": [
-    ["Northgate", "Museum Row"],
-    ["Museum Row", "Central Plaza"],
-    ["Central Plaza", "River Market"],
-    ["River Market", "South Pier"],
-  ],
-  "Azure Line": [
-    ["Harbor Point", "West End"],
-    ["West End", "Central Plaza"],
-    ["Central Plaza", "Eastbank"],
-    ["Eastbank", "Garden Hills"],
-    ["Garden Hills", "Old Quarry"],
-  ],
-  "Emerald Line": [
-    ["University", "Theater District"],
-    ["Theater District", "West End"],
-    ["West End", "River Market"],
-    ["River Market", "Tech Park"],
-  ],
-  "Gold Line": [
-    ["Observatory", "Civic Hall"],
-    ["Civic Hall", "Tech Park"],
-  ],
-};
+const segments = [
+  { line: "Crimson Line", station1: "Northgate", station2: "Museum Row" },
+  { line: "Crimson Line", station1: "Museum Row", station2: "Central Plaza" },
+  { line: "Crimson Line", station1: "Central Plaza", station2: "River Market" },
+  { line: "Crimson Line", station1: "River Market", station2: "South Pier" },
+  { line: "Azure Line", station1: "Harbor Point", station2: "West End" },
+  { line: "Azure Line", station1: "West End", station2: "Central Plaza" },
+  { line: "Azure Line", station1: "Central Plaza", station2: "Eastbank" },
+  { line: "Azure Line", station1: "Eastbank", station2: "Garden Hills" },
+  { line: "Azure Line", station1: "Garden Hills", station2: "Old Quarry" },
+  { line: "Emerald Line", station1: "University", station2: "Theater District" },
+  { line: "Emerald Line", station1: "Theater District", station2: "West End" },
+  { line: "Emerald Line", station1: "West End", station2: "River Market" },
+  { line: "Emerald Line", station1: "River Market", station2: "Tech Park" },
+  { line: "Gold Line", station1: "Observatory", station2: "Civic Hall" },
+  { line: "Gold Line", station1: "Civic Hall", station2: "Tech Park" },
+];
 
 const events = [
   { description: "Street festival crowds slow the transfer.", effect: -2 },
@@ -68,13 +66,7 @@ const events = [
   { description: "Quiet carriage keeps the journey smooth.", effect: 2 },
 ];
 
-const users = [
-  { username: "user1", password: "password" },
-  { username: "user2", password: "password" },
-  { username: "user3", password: "password" },
-];
-
-const games = [
+const playedGames = [
   {
     username: "user1",
     start: "Northgate",
@@ -123,7 +115,21 @@ async function hashPassword(password) {
   };
 }
 
-async function dropTables() {
+function closeDatabase() {
+  return new Promise((resolve, reject) => {
+    db.close((err) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve();
+      }
+    });
+  });
+}
+
+async function main() {
+  await dbRun("PRAGMA foreign_keys = ON");
+
   await dbRun("DROP TABLE IF EXISTS segment_lines");
   await dbRun("DROP TABLE IF EXISTS games");
   await dbRun("DROP TABLE IF EXISTS events");
@@ -131,9 +137,7 @@ async function dropTables() {
   await dbRun("DROP TABLE IF EXISTS lines");
   await dbRun("DROP TABLE IF EXISTS stations");
   await dbRun("DROP TABLE IF EXISTS users");
-}
 
-async function createTables() {
   await dbRun(`
     CREATE TABLE users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -204,77 +208,10 @@ async function createTables() {
       FOREIGN KEY(destination_station_id) REFERENCES stations(id)
     )
   `);
-}
 
-async function insertStations() {
-  const stationIds = new Map();
-
-  for (const station of stations) {
-    const result = await dbRun(
-      "INSERT INTO stations (name, x, y) VALUES (?, ?, ?)",
-      [station.name, station.x, station.y],
-    );
-    stationIds.set(station.name, result.id);
-  }
-
-  return stationIds;
-}
-
-async function insertLines() {
-  const lineIds = new Map();
-
-  for (const line of lines) {
-    const result = await dbRun(
-      "INSERT INTO lines (name, color) VALUES (?, ?)",
-      [line.name, line.color],
-    );
-    lineIds.set(line.name, result.id);
-  }
-
-  return lineIds;
-}
-
-async function insertSegment(stationIds, lineIds, stationA, stationB, lineName) {
-  const firstId = stationIds.get(stationA);
-  const secondId = stationIds.get(stationB);
-  const station1Id = Math.min(firstId, secondId);
-  const station2Id = Math.max(firstId, secondId);
-
-  await dbRun(
-    "INSERT OR IGNORE INTO segments (station1_id, station2_id) VALUES (?, ?)",
-    [station1Id, station2Id],
-  );
-
-  const segment = await dbGet(
-    "SELECT id FROM segments WHERE station1_id = ? AND station2_id = ?",
-    [station1Id, station2Id],
-  );
-
-  await dbRun(
-    "INSERT OR IGNORE INTO segment_lines (segment_id, line_id) VALUES (?, ?)",
-    [segment.id, lineIds.get(lineName)],
-  );
-}
-
-async function insertSegments(stationIds, lineIds) {
-  for (const [lineName, segmentsForLine] of Object.entries(lineSegments)) {
-    for (const [stationA, stationB] of segmentsForLine) {
-      await insertSegment(stationIds, lineIds, stationA, stationB, lineName);
-    }
-  }
-}
-
-async function insertEvents() {
-  for (const event of events) {
-    await dbRun(
-      "INSERT INTO events (description, effect) VALUES (?, ?)",
-      [event.description, event.effect],
-    );
-  }
-}
-
-async function insertUsers() {
-  const userIds = new Map();
+  const stationIds = {};
+  const lineIds = {};
+  const userIds = {};
 
   for (const user of users) {
     const password = await hashPassword(user.password);
@@ -282,14 +219,57 @@ async function insertUsers() {
       "INSERT INTO users (username, salt, hash) VALUES (?, ?, ?)",
       [user.username, password.salt, password.hash],
     );
-    userIds.set(user.username, result.id);
+
+    userIds[user.username] = result.id;
   }
 
-  return userIds;
-}
+  for (const station of stations) {
+    const result = await dbRun(
+      "INSERT INTO stations (name, x, y) VALUES (?, ?, ?)",
+      [station.name, station.x, station.y],
+    );
 
-async function insertGames(userIds, stationIds) {
-  for (const game of games) {
+    stationIds[station.name] = result.id;
+  }
+
+  for (const line of lines) {
+    const result = await dbRun(
+      "INSERT INTO lines (name, color) VALUES (?, ?)",
+      [line.name, line.color],
+    );
+
+    lineIds[line.name] = result.id;
+  }
+
+  for (const segment of segments) {
+    let station1Id = stationIds[segment.station1];
+    let station2Id = stationIds[segment.station2];
+
+    if (station1Id > station2Id) {
+      const temporaryId = station1Id;
+      station1Id = station2Id;
+      station2Id = temporaryId;
+    }
+
+    const result = await dbRun(
+      "INSERT INTO segments (station1_id, station2_id) VALUES (?, ?)",
+      [station1Id, station2Id],
+    );
+
+    await dbRun(
+      "INSERT INTO segment_lines (segment_id, line_id) VALUES (?, ?)",
+      [result.id, lineIds[segment.line]],
+    );
+  }
+
+  for (const event of events) {
+    await dbRun(
+      "INSERT INTO events (description, effect) VALUES (?, ?)",
+      [event.description, event.effect],
+    );
+  }
+
+  for (const game of playedGames) {
     await dbRun(
       `
         INSERT INTO games (
@@ -303,9 +283,9 @@ async function insertGames(userIds, stationIds) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        userIds.get(game.username),
-        stationIds.get(game.start),
-        stationIds.get(game.destination),
+        userIds[game.username],
+        stationIds[game.start],
+        stationIds[game.destination],
         game.initialCoins,
         game.finalScore,
         game.validRoute,
@@ -313,47 +293,8 @@ async function insertGames(userIds, stationIds) {
       ],
     );
   }
-}
 
-async function seedData() {
-  const stationIds = await insertStations();
-  const lineIds = await insertLines();
-
-  await insertSegments(stationIds, lineIds);
-  await insertEvents();
-
-  const userIds = await insertUsers();
-
-  await insertGames(userIds, stationIds);
-}
-
-function closeDatabase() {
-  return new Promise((resolve, reject) => {
-    db.close((err) => {
-      if (err) {
-        reject(err);
-        return;
-      }
-
-      resolve();
-    });
-  });
-}
-
-async function main() {
-  await dbRun("PRAGMA foreign_keys = ON");
-  await dbRun("BEGIN TRANSACTION");
-
-  try {
-    await dropTables();
-    await createTables();
-    await seedData();
-    await dbRun("COMMIT");
-    console.log("Last Race database initialized successfully at server/last_race.sqlite");
-  } catch (err) {
-    await dbRun("ROLLBACK").catch(() => {});
-    throw err;
-  }
+  console.log("Last Race database initialized successfully at server/last_race.sqlite");
 }
 
 try {
