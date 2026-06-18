@@ -10,6 +10,7 @@ import {
   getUserByUsername,
 } from "./dao-users.js";
 import { getFullNetwork, getSegments } from "./dao-network.js";
+import { createNewGame } from "./dao-games.js";
 
 const LocalStrategy = passportLocal.Strategy;
 const app = express();
@@ -135,6 +136,15 @@ app.get("/api/segments", isLoggedIn, async (req, res, next) => {
   try {
     const segments = await getSegments();
     res.json(segments);
+  } catch (err) {
+    next(err);
+  }
+});
+
+app.post("/api/games", isLoggedIn, async (req, res, next) => {
+  try {
+    const game = await createNewGame(req.user.id);
+    res.json(game);
   } catch (err) {
     next(err);
   }
