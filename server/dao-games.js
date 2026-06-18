@@ -330,3 +330,17 @@ export async function submitRoute(gameId, userId, segmentIds) {
     steps,
   };
 }
+
+export function getRanking() {
+  return dbAll(`
+    SELECT
+      users.username,
+      MAX(games.final_score) AS bestScore
+    FROM games
+    JOIN users ON users.id = games.user_id
+    WHERE games.valid_route = 1
+      AND games.final_score IS NOT NULL
+    GROUP BY users.id, users.username
+    ORDER BY bestScore DESC
+  `);
+}
