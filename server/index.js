@@ -10,7 +10,7 @@ import {
   getUserByUsername,
 } from "./dao-users.js";
 import { getFullNetwork, getSegments } from "./dao-network.js";
-import { createNewGame } from "./dao-games.js";
+import { createNewGame, submitRoute } from "./dao-games.js";
 
 const LocalStrategy = passportLocal.Strategy;
 const app = express();
@@ -147,6 +147,22 @@ app.post("/api/games", isLoggedIn, async (req, res, next) => {
     res.json(game);
   } catch (err) {
     next(err);
+  }
+});
+
+app.post("/api/games/:gameId/route", isLoggedIn, async (req, res, next) => {
+  const gameId = Number(req.params.gameId);
+  const segmentIds = req.body.segmentIds;
+
+  if (!Array.isArray(segmentIds)) {
+    return res.status(400).json({ error: "segmentIds must be an array" });
+  }
+
+  try {
+    const result = await submitRoute(gameId, req.user.id, segmentIds);
+    return res.json(result);
+  } catch (err) {
+    return next(err);
   }
 });
 
